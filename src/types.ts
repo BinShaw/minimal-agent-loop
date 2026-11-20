@@ -1,6 +1,6 @@
 /**
  * 与 OpenAI 兼容 Chat Completions API 相关的共享类型。
- * 不依赖任何 SDK，直接用 fetch 调用，可对接 OpenAI / DeepSeek / GLM / Ollama 等服务。
+ * 本文件只有类型，不含任何运行时代码；网络请求见 llm.ts，主循环见 agent.ts。
  */
 
 /** 模型返回的一次工具调用请求 */
@@ -38,56 +38,9 @@ export interface ToolSchema {
   };
 }
 
-/** LLM 服务配置，从环境变量读取 */
+/** LLM 服务配置，由 llm.ts 的 loadConfig() 从环境变量构造 */
 export interface LLMConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
-}
-
-export function loadConfig(): LLMConfig {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "缺少环境变量 OPENAI_API_KEY。\n" +
-        "  直连 OpenAI:      set OPENAI_API_KEY=sk-...\n" +
-        "  使用兼容服务:     set OPENAI_BASE_URL=https://api.deepseek.com/v1\n" +
-        "                    set OPENAI_API_KEY=...\n" +
-        "                    set MODEL=deepseek-chat\n" +
-        "  本地 Ollama:      set OPENAI_BASE_URL=http://localhost:11434/v1"
-    );
-  }
-  return {
-    baseUrl: (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
-    apiKey,
-    model: process.env.MODEL ?? "gpt-4o-mini",
-  };
-}
-
-/** 调用一次 Chat Completions，返回 assistant 消息（可能含 tool_calls） */
-export async function chat(
-  messages: ChatMessage[],
-  tools: ToolSchema[],
-  config: LLMConfig
-): Promise<ChatMessage> {
-  const res = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({ model: config.model, messages, tools }),
-    signal: AbortSignal.timeout(120_000),
-  });
-
-  if (!res.ok) {
-    throw new Error(`LLM 请求失败 ${res.status}: ${await res.text()}`);
-  }
-
-  const data = await res.json();
-  const message = data.choices?.[0]?.message as ChatMessage | undefined;
-  if (!message) {
-    throw new Error(`LLM 返回结构异常: ${JSON.stringify(data)}`);
-  }
-  return message;
 }

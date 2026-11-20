@@ -5,90 +5,75 @@
 import type { ToolSchema } from "./types.js";
 
 export interface Tool {
+  /** 本地路由 key，Agent 用它找到要执行的 handler */
   name: string;
+  /** 发给模型的线上协议，其 function.name 与上面的 name 是同一个名字 */
   schema: ToolSchema;
   handler: (args: Record<string, unknown>) => Promise<unknown> | unknown;
 }
 
-/** 运行时执行命令（demo 里 agent 用它来跑 npm script） */
-async function runCommand(command: string, timeoutMs = 60_000): Promise<string> {
-  const { exec } = await import("node:child_process");
-  return new Promise((resolve) => {
-    exec(
-      command,
-      { timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 },
-      (err, stdout, stderr) => {
-        if (err) {
-          resolve(`exit code ${err.code ?? "?"}\nstdout:\n${stdout}\nstderr:\n${stderr}`);
-        } else {
-          resolve(stdout + (stderr ? `\nstderr:\n${stderr}` : ""));
-        }
-      }
-    );
-  });
+interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: ToolSchema["function"]["parameters"];
+  handler: Tool["handler"];
 }
 
-/** 命令白名单，只允许跑测试相关命令，防止 prompt injection 下跑任意命令 */
-const ALLOWED_COMMANDS = [/^npm (test|run test)( |$)/, /^node --test( |$)/, /^npx tsx .+\.test\.ts$/];
-
-function assertAllowed(command: string): void {
-  if (!ALLOWED_COMMANDS.some((re) => re.test(command))) {
-    throw new Error(`命令不在白名单内: ${command}`);
-  }
-}
-
-/** 汇总错误信息，供 tool 消息返回给模型 */
-function captureStack(err: unknown): string {
-  return err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+/**
+ * 组装一个工具，把 JSON Schema 的嵌套样板收进工厂内部。
+ * name 同时填入本地路由 key 和 schema.function.name，避免两处手写不一致。
+ */
+export function defineTool(def: ToolDefinition): Tool {
+  return {
+    name: def.name,
+    schema: {
+      type: "function",
+      function: {
+        name: def.name,
+        description: def.description,
+        parameters: def.parameters,
+      },
+    },
+    handler: def.handler,
+  };
 }
 
 export function createDefaultTools(): Tool[] {
   return [
-    {
+    defineTool({
       name: "calculate",
-      schema: {
-        type: "function",
-        function: {
-          name: "calculate",
-          description: "计算一个数学表达式并返回结果",
-          parameters: {
-            type: "object",
-            properties: {
-              expression: { type: "string", description: "例如 2 + 3 * 4" },
-            },
-            required: ["expression"],
-          },
+      description: "计算一个数学表达式并返回结果",
+      parameters: {
+        type: "object",
+        properties: {
+          expression: { type: "string", description: "例如 2 + 3 * 4" },
         },
+        required: ["expression"],
       },
-      handler: async (args) => {
+      handler: (args) => {
         const expression = String(args.expression ?? "").trim();
-        // 只放行纯数学字符，防止借表达式执行任意代码
+        // 白名单只放行数学字符。禁掉字母是安全的关键：没有字母就拼不出任何
+        // 标识符（constructor、globalThis 等），表达式便够不到 JS 本身的能力。
         if (!/^[-+*/%().,\d\s]+$/.test(expression)) {
           throw new Error("表达式含非法字符，只支持数字和 + - * / % ( )");
         }
+        // 教学简化：真实项目请改用表达式解析器（如 mathjs）。
+        // 这里为了零依赖采用「白名单 + Function」，绝不能套用到未过滤的输入上。
         const result = new Function(`"use strict"; return (${expression});`)();
         if (typeof result !== "number" || !Number.isFinite(result)) {
           throw new Error(`无法求值: ${expression}`);
         }
         return result;
       },
-    },
-    {
+    }),
+    defineTool({
       name: "get_current_time",
-      schema: {
-        type: "function",
-        function: {
-          name: "get_current_time",
-          description: "获取当前时间",
-          parameters: {
-            type: "object",
-            properties: {},
-          },
-        },
+      description: "获取当前时间",
+      parameters: {
+        type: "object",
+        properties: {},
       },
       handler: () => new Date().toISOString(),
-    },
+    }),
   ];
 }
-
-export { runCommand, assertAllowed, captureStack };

@@ -4,7 +4,7 @@
  */
 import readline from "node:readline/promises";
 import { Agent } from "./agent.js";
-import { loadConfig } from "./types.js";
+import { loadConfig } from "./llm.js";
 import { createDefaultTools } from "./tools.js";
 
 const CYAN = "\x1b[36m";
@@ -29,13 +29,18 @@ async function main() {
     try {
       const answer = await agent.run(question, {
         onStep: (step, n) => {
-          if (step.toolCalls.length > 0) {
-            for (const call of step.toolCalls) {
-              const preview = step.results[call.id]?.slice(0, 200) ?? "";
-              console.log(
-                `${DIM}[step ${n}] 调用 ${call.function.name}(${call.function.arguments}) → ${preview}${RESET}`
-              );
-            }
+          // 最后一步没有工具调用，其 text 就是最终答案，交给下方统一打印
+          if (step.toolCalls.length === 0) return;
+          // Reason：打印模型的思考文本，ReAct 的"想"也应该看得见
+          if (step.text) {
+            console.log(`${DIM}[step ${n}] 思考: ${step.text}${RESET}`);
+          }
+          // Act + Observe：调用了哪个工具、参数是什么、观察到了什么
+          for (const call of step.toolCalls) {
+            const preview = step.results[call.id]?.slice(0, 200) ?? "";
+            console.log(
+              `${DIM}[step ${n}] 调用 ${call.function.name}(${call.function.arguments}) → ${preview}${RESET}`
+            );
           }
         },
       });
