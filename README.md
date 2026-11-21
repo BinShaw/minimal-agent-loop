@@ -35,8 +35,8 @@ npm run dev   # 交互式对话（开发模式，用 tsx 直接跑 TS）
 | 服务 | `OPENAI_BASE_URL` | `MODEL` | `OPENAI_API_KEY` |
 |---|---|---|---|
 | OpenAI（默认） | 可不设 | 可不设 | `sk-...` |
-| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` | 你的 key |
-| 本地 Ollama | `http://localhost:11434/v1` | `qwen2.5` 等 | 任意非空值，如 `ollama` |
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-flash` | 你的 key |
+| 本地 Ollama | `http://localhost:11434/v1` | `qwen3.8` 等 | 任意非空值，如 `ollama` |
 
 以 DeepSeek 为例，三种 shell 的写法：
 
@@ -44,21 +44,21 @@ npm run dev   # 交互式对话（开发模式，用 tsx 直接跑 TS）
 # bash / zsh（macOS、Linux、Git Bash）
 export OPENAI_BASE_URL=https://api.deepseek.com/v1
 export OPENAI_API_KEY=sk-...
-export MODEL=deepseek-chat
+export MODEL=deepseek-flash
 ```
 
 ```powershell
 # PowerShell（Windows）
 $env:OPENAI_BASE_URL = "https://api.deepseek.com/v1"
 $env:OPENAI_API_KEY = "sk-..."
-$env:MODEL = "deepseek-chat"
+$env:MODEL = "deepseek-flash"
 ```
 
 ```cmd
 :: cmd（Windows）
 set OPENAI_BASE_URL=https://api.deepseek.com/v1
 set OPENAI_API_KEY=sk-...
-set MODEL=deepseek-chat
+set MODEL=deepseek-flash
 ```
 
 也可以先编译再运行。带上 `--enable-source-maps`，报错堆栈会直接指向 `src/*.ts` 而不是编译产物：
