@@ -3,6 +3,8 @@
 一个用 TypeScript 编写的极简 Agent Loop，实现 ReAct（Reason → Act → Observe）循环。
 零运行时依赖、无 SDK —— 核心逻辑约 100 行，适合用来理解 agent 的底层工作原理。
 
+> Python 版见 [minimal-agent-loop-py](https://github.com/BinShaw/minimal-agent-loop-py)。
+
 ## ReAct 循环
 
 ```
